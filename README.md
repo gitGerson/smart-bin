@@ -1,5 +1,23 @@
 This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
+## Smart-bin WhatsApp alert
+
+The ESP32 calls `POST /api/alerts/distance` when the ultrasonic distance drops
+below 5 cm. The server then sends the warning through Fonnte, keeping the Fonnte
+token out of the device firmware.
+
+1. Copy `.env.example` to `.env.local` and set the Fonnte token, target number,
+   country code, and a long random device API key.
+2. Copy `arduino/secrets.example.h` to `arduino/secrets.h`, then set the same
+   device API key and your Wi-Fi credentials there. This file is git-ignored.
+3. Set the reachable Next.js server URL in `arduino/app.ino`.
+4. Start the server with `npm run dev -- --hostname 0.0.0.0`, then upload the
+   sketch to the ESP32. Allow port 3000 through the local firewall if required.
+
+The ESP32 sends one message per close-object event. It rearms after the measured
+distance reaches 7 cm and retries failed notifications at most once every 30
+seconds.
+
 ## Getting Started
 
 First, run the development server:
