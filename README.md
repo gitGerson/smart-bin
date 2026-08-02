@@ -8,11 +8,10 @@ token out of the device firmware.
 
 1. Copy `.env.example` to `.env.local` and set the Fonnte token, target number,
    country code, and a long random device API key.
-2. Copy `arduino/secrets.example.h` to `arduino/secrets.h`, then set the same
-   device API key and your Wi-Fi credentials there. This file is git-ignored.
-3. Set the reachable Next.js server URL in `arduino/app.ino`.
-4. Start the server with `npm run dev -- --hostname 0.0.0.0`, then upload the
-   sketch to the ESP32. Allow port 3000 through the local firewall if required.
+2. Set your Wi-Fi credentials and the matching device API key directly in
+   `arduino/app.ino`.
+3. Upload the sketch to the ESP32. It sends alerts to
+   `https://bin.dfxx.my.id/api/alerts/distance`.
 
 The ESP32 sends one message per close-object event. It rearms after the measured
 distance reaches 7 cm and retries failed notifications at most once every 30

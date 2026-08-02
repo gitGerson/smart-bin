@@ -1,9 +1,11 @@
 #include <WiFi.h>
 #include <HTTPClient.h>
-#include "secrets.h"
 
-// Use your computer's LAN IP, not localhost, when Next.js runs locally.
-const char* alertApiUrl = "http://192.168.1.100:3000/api/alerts/distance";
+const char* wifiSsid = "Gerson's Galaxy A50";
+const char* wifiPassword = "aapppwwww";
+const char* deviceApiKey = "a764245b6295d1ce4cea1fdab1c0b88d4cb2d2ed693bbc51afb3ed8aa783d53c";
+
+const char* alertApiUrl = "https://bin.dfxx.my.id/api/alerts/distance";
 
 const int trigPin = 5;
 const int echoPin = 18;
