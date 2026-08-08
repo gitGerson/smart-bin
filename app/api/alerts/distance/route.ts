@@ -4,8 +4,7 @@ export const runtime = "nodejs";
 
 const WARNING_DISTANCE_CM = 5;
 
-const DEFAULT_MESSAGE_TEMPLATE =
-  "Peringatan Smart Bin: jarak ultrasonik {distanceCm} cm (di bawah {thresholdCm} cm).";
+const DEFAULT_MESSAGE_TEMPLATE = "Peringatan : Tempat Sampah Hampir Penuh";
 
 // Lets the wording be edited from the Vercel dashboard instead of a code change.
 // Unknown placeholders are left untouched so a typo is visible in the message

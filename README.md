@@ -10,7 +10,7 @@ token out of the device firmware.
    country code, and a long random device API key.
    Optionally set `FONNTE_MESSAGE` to change the alert wording without touching
    the code. It supports the `{distanceCm}`, `{thresholdCm}`, and `{time}`
-   placeholders; unset falls back to the default Indonesian wording.
+   placeholders; unset falls back to `Peringatan : Tempat Sampah Hampir Penuh`.
 2. Set your Wi-Fi credentials and the matching device API key directly in
    `arduino/app.ino`.
 3. Upload the sketch to the ESP32. It sends alerts to
