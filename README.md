@@ -8,6 +8,9 @@ token out of the device firmware.
 
 1. Copy `.env.example` to `.env.local` and set the Fonnte token, target number,
    country code, and a long random device API key.
+   Optionally set `FONNTE_MESSAGE` to change the alert wording without touching
+   the code. It supports the `{distanceCm}`, `{thresholdCm}`, and `{time}`
+   placeholders; unset falls back to the default Indonesian wording.
 2. Set your Wi-Fi credentials and the matching device API key directly in
    `arduino/app.ino`.
 3. Upload the sketch to the ESP32. It sends alerts to

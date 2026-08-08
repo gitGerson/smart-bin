@@ -4,6 +4,26 @@ export const runtime = "nodejs";
 
 const WARNING_DISTANCE_CM = 5;
 
+const DEFAULT_MESSAGE_TEMPLATE =
+  "Peringatan Smart Bin: jarak ultrasonik {distanceCm} cm (di bawah {thresholdCm} cm).";
+
+// Lets the wording be edited from the Vercel dashboard instead of a code change.
+// Unknown placeholders are left untouched so a typo is visible in the message
+// rather than silently turning into an empty string.
+function buildMessage(distanceCm: number): string {
+  const template = process.env.FONNTE_MESSAGE?.trim() || DEFAULT_MESSAGE_TEMPLATE;
+
+  const values: Record<string, string> = {
+    distanceCm: distanceCm.toFixed(1),
+    thresholdCm: String(WARNING_DISTANCE_CM),
+    time: new Date().toLocaleString("id-ID", { timeZone: "Asia/Jakarta" }),
+  };
+
+  return template.replace(/\{(\w+)\}/g, (match, key: string) =>
+    key in values ? values[key] : match,
+  );
+}
+
 function hasValidDeviceKey(request: Request): boolean {
   const configuredKey = process.env.DEVICE_API_KEY;
   const providedKey = request.headers.get("x-device-key");
@@ -63,10 +83,7 @@ export async function POST(request: Request) {
 
   const formData = new FormData();
   formData.set("target", target);
-  formData.set(
-    "message",
-    `Peringatan Smart Bin: jarak ultrasonik ${distanceCm.toFixed(1)} cm (di bawah 5 cm).`,
-  );
+  formData.set("message", buildMessage(distanceCm));
   formData.set("countryCode", process.env.FONNTE_COUNTRY_CODE ?? "62");
 
   try {
