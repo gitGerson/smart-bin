@@ -1,8 +1,8 @@
 #include <WiFi.h>
 #include <HTTPClient.h>
 
-const char* wifiSsid = "Pojok";
-const char* wifiPassword = "aapppwwww";
+const char* wifiSsid = "ssidwifi";
+const char* wifiPassword = "passwordwifi";
 const char* deviceApiKey = "a764245b6295d1ce4cea1fdab1c0b88d4cb2d2ed693bbc51afb3ed8aa783d53c";
 
 const char* alertApiUrl = "https://smart-bin-rosy.vercel.app/api/alerts/distance";
@@ -23,9 +23,7 @@ const int maxOpenNetworks = 10;
 bool notificationSent = false;
 unsigned long lastNotificationAttempt = 0;
 
-// Status blinks are only meaningful while somebody is standing at the bin
-// installing it. Once we hand the pin back to the bin-full warning, patterns
-// would be misread as "bin is full", so they are suppressed after setup().
+// Kedipan status hanya aktif saat pemasangan agar tidak dianggap peringatan penuh.
 bool statusFeedbackEnabled = true;
 
 void blink(int times, int onMs, int offMs) {
@@ -48,7 +46,7 @@ bool joinNetwork(const char* ssid, const char* password) {
   unsigned long startedAt = millis();
   bool ledOn = false;
   while (WiFi.status() != WL_CONNECTED && millis() - startedAt < wifiJoinTimeoutMs) {
-    // Steady 2 Hz heartbeat for as long as we are trying to associate.
+    // Berkedip 2 Hz selama mencoba terhubung.
     if (statusFeedbackEnabled) {
       ledOn = !ledOn;
       digitalWrite(warningPin, ledOn ? HIGH : LOW);
@@ -66,10 +64,9 @@ bool joinNetwork(const char* ssid, const char* password) {
   return connected;
 }
 
-// Fallback when the configured network is out of range: scan, collect every
-// open (unencrypted) SSID, and try them in random order until one lets us on.
+// Cari dan coba jaringan terbuka jika jaringan utama tidak tersedia.
 bool connectToAnyOpenWifi() {
-  // Three quick winks announce "configured network missing, scanning now".
+  // Tiga kedipan cepat menandakan pemindaian jaringan.
   blink(3, 80, 80);
 
   int found = WiFi.scanNetworks();
@@ -87,7 +84,7 @@ bool connectToAnyOpenWifi() {
   }
   Serial.printf("Found %d open network(s) of %d\n", openCount, found);
 
-  // Fisher-Yates shuffle so we do not always favour the same access point.
+  // Acak urutan agar tidak selalu memilih akses poin yang sama.
   for (int i = openCount - 1; i > 0; i--) {
     int j = random(i + 1);
     int tmp = openIndexes[i];
@@ -142,8 +139,7 @@ bool sendDistanceAlert(float distanceCm) {
   return true;
 }
 
-// Returns 0 when the echo times out, which means the sensor is unwired,
-// mispointed, or the lid is closer than its ~2 cm minimum range.
+// Nilai 0 berarti sensor bermasalah atau objek terlalu dekat.
 long readEchoDuration() {
   digitalWrite(trigPin, LOW);
   delayMicroseconds(2);
@@ -154,8 +150,7 @@ long readEchoDuration() {
   return pulseIn(echoPin, HIGH, 30000);
 }
 
-// Take a few readings so the installer knows the sensor is wired correctly
-// before they close up the bin.
+// Uji beberapa kali untuk memastikan sensor terpasang dengan benar.
 bool sensorSelfTest() {
   for (int attempt = 0; attempt < 5; attempt++) {
     if (readEchoDuration() > 0) {
@@ -173,7 +168,7 @@ void setup() {
   pinMode(warningPin, OUTPUT);
   digitalWrite(warningPin, LOW);
 
-  // Boot: one long pulse proves the LED and its wiring are alive.
+  // Satu kedipan panjang untuk menguji LED.
   blink(1, 600, 300);
 
   randomSeed(esp_random());
@@ -194,14 +189,13 @@ void setup() {
   }
 
   if (wifiOk && sensorOk) {
-    // Ready: two slow confirmation pulses, then the LED goes quiet until the
-    // bin actually fills up.
+    // Dua kedipan lambat menandakan alat siap.
     blink(2, 400, 200);
   } else if (sensorOk) {
-    // Sensor fine, no network: alerts will not reach the server.
+    // Sensor aktif, tetapi jaringan tidak tersedia.
     blink(4, 150, 150);
   } else {
-    // Sensor dead - the installer needs to recheck trig/echo wiring.
+    // Sensor gagal; periksa kabel trig dan echo.
     blink(8, 100, 100);
   }
 
@@ -240,8 +234,7 @@ void loop() {
   } else {
     digitalWrite(warningPin, LOW);
 
-    // Rearm only after the object moves far enough away to avoid alert spam
-    // from sensor readings fluctuating around 5 cm.
+    // Aktifkan ulang setelah objek menjauh agar peringatan tidak berulang.
     if (distanceCm >= rearmDistanceCm) {
       notificationSent = false;
       lastNotificationAttempt = 0;
