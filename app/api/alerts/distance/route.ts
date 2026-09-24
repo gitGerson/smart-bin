@@ -10,7 +10,7 @@ const DEFAULT_MESSAGE_TEMPLATE = "Peringatan : Tempat Sampah Hampir Penuh";
 // Unknown placeholders are left untouched so a typo is visible in the message
 // rather than silently turning into an empty string.
 function buildMessage(distanceCm: number): string {
-  const template = process.env.FONNTE_MESSAGE?.trim() || DEFAULT_MESSAGE_TEMPLATE;
+  const template = process.env.ALERT_MESSAGE?.trim() || DEFAULT_MESSAGE_TEMPLATE;
 
   const values: Record<string, string> = {
     distanceCm: distanceCm.toFixed(1),
@@ -21,6 +21,21 @@ function buildMessage(distanceCm: number): string {
   return template.replace(/\{(\w+)\}/g, (match, key: string) =>
     key in values ? values[key] : match,
   );
+}
+
+// WAHA expects a chat ID such as 628123456789@c.us (or ...@g.us for groups).
+// Local numbers like 08123456789 are converted using the country code.
+function toChatId(target: string, countryCode: string): string {
+  if (target.includes("@")) {
+    return target;
+  }
+
+  let digits = target.replace(/\D/g, "");
+  if (digits.startsWith("0")) {
+    digits = countryCode + digits.slice(1);
+  }
+
+  return `${digits}@c.us`;
 }
 
 function hasValidDeviceKey(request: Request): boolean {
@@ -69,40 +84,38 @@ export async function POST(request: Request) {
     return Response.json({ sent: false, reason: "Distance is not below 5 cm" });
   }
 
-  const token = process.env.FONNTE_TOKEN;
-  const target = process.env.FONNTE_TARGET;
+  const baseUrl = process.env.WAHA_BASE_URL?.trim().replace(/\/+$/, "");
+  const apiKey = process.env.WAHA_API_KEY;
+  const target = process.env.WAHA_TARGET?.trim();
 
-  if (!token || !target) {
-    console.error("FONNTE_TOKEN or FONNTE_TARGET is not configured");
+  if (!baseUrl || !apiKey || !target) {
+    console.error("WAHA_BASE_URL, WAHA_API_KEY or WAHA_TARGET is not configured");
     return Response.json(
       { error: "Notification service is not configured" },
       { status: 500 },
     );
   }
 
-  const formData = new FormData();
-  formData.set("target", target);
-  formData.set("message", buildMessage(distanceCm));
-  formData.set("countryCode", process.env.FONNTE_COUNTRY_CODE ?? "62");
-
   try {
-    const fonnteResponse = await fetch("https://api.fonnte.com/send", {
+    const wahaResponse = await fetch(`${baseUrl}/api/sendText`, {
       method: "POST",
-      headers: { Authorization: token },
-      body: formData,
+      headers: {
+        "Content-Type": "application/json",
+        "X-Api-Key": apiKey,
+      },
+      body: JSON.stringify({
+        session: process.env.WAHA_SESSION?.trim() || "default",
+        chatId: toChatId(target, process.env.WAHA_COUNTRY_CODE ?? "62"),
+        text: buildMessage(distanceCm),
+      }),
       cache: "no-store",
+      signal: AbortSignal.timeout(10_000),
     });
 
-    const result: unknown = await fonnteResponse.json().catch(() => null);
-    const fonnteRejected =
-      typeof result === "object" &&
-      result !== null &&
-      "status" in result &&
-      result.status === false;
-
-    if (!fonnteResponse.ok || fonnteRejected) {
-      console.error("Fonnte rejected the notification", {
-        status: fonnteResponse.status,
+    if (!wahaResponse.ok) {
+      const result = await wahaResponse.text().catch(() => null);
+      console.error("WAHA rejected the notification", {
+        status: wahaResponse.status,
         result,
       });
 
@@ -114,7 +127,7 @@ export async function POST(request: Request) {
 
     return Response.json({ sent: true });
   } catch (error) {
-    console.error("Could not reach Fonnte", error);
+    console.error("Could not reach WAHA", error);
     return Response.json(
       { error: "Notification service is unavailable" },
       { status: 502 },

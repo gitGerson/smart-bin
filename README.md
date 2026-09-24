@@ -3,17 +3,22 @@ This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-
 ## Smart-bin WhatsApp alert
 
 The ESP32 calls `POST /api/alerts/distance` when the ultrasonic distance drops
-below 5 cm. The server then sends the warning through Fonnte, keeping the Fonnte
-token out of the device firmware.
+below 5 cm. The server then sends the warning through a self-hosted
+[WAHA Plus](https://waha.devlike.pro) instance using the NOWEB engine, keeping
+the WAHA API key out of the device firmware.
 
-1. Copy `.env.example` to `.env.local` and set the Fonnte token, target number,
-   country code, and a long random device API key.
-   Optionally set `FONNTE_MESSAGE` to change the alert wording without touching
+1. Run WAHA Plus with `WHATSAPP_DEFAULT_ENGINE=NOWEB` and `WHATSAPP_API_KEY`
+   set, then start a session and scan the QR code so its status is `WORKING`.
+2. Copy `.env.example` to `.env.local` and set `WAHA_BASE_URL`, `WAHA_API_KEY`,
+   `WAHA_SESSION`, the target (`WAHA_TARGET`, a phone number or a full chat ID
+   such as `...@g.us` for a group), the country code, and a long random device
+   API key.
+   Optionally set `ALERT_MESSAGE` to change the alert wording without touching
    the code. It supports the `{distanceCm}`, `{thresholdCm}`, and `{time}`
    placeholders; unset falls back to `Peringatan : Tempat Sampah Hampir Penuh`.
-2. Set your Wi-Fi credentials and the matching device API key directly in
+3. Set your Wi-Fi credentials and the matching device API key directly in
    `arduino/app.ino`.
-3. Upload the sketch to the ESP32. It sends alerts to
+4. Upload the sketch to the ESP32. It sends alerts to
    `https://bin.dfxx.my.id/api/alerts/distance`.
 
 The ESP32 sends one message per close-object event. It rearms after the measured
