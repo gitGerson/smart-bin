@@ -1,4 +1,7 @@
-import { timingSafeEqual } from "node:crypto";
+import { after } from "next/server";
+
+import { hasValidDeviceKey, readDistanceCm } from "@/lib/device-request";
+import { appendSheetLog, jakartaTime } from "@/lib/sheet-log";
 
 export const runtime = "nodejs";
 
@@ -15,7 +18,7 @@ function buildMessage(distanceCm: number): string {
   const values: Record<string, string> = {
     distanceCm: distanceCm.toFixed(1),
     thresholdCm: String(WARNING_DISTANCE_CM),
-    time: new Date().toLocaleString("id-ID", { timeZone: "Asia/Jakarta" }),
+    time: jakartaTime(),
   };
 
   return template.replace(/\{(\w+)\}/g, (match, key: string) =>
@@ -38,42 +41,14 @@ function toChatId(target: string, countryCode: string): string {
   return `${digits}@c.us`;
 }
 
-function hasValidDeviceKey(request: Request): boolean {
-  const configuredKey = process.env.DEVICE_API_KEY;
-  const providedKey = request.headers.get("x-device-key");
-
-  if (!configuredKey || !providedKey) {
-    return false;
-  }
-
-  const configuredBuffer = Buffer.from(configuredKey);
-  const providedBuffer = Buffer.from(providedKey);
-
-  return (
-    configuredBuffer.length === providedBuffer.length &&
-    timingSafeEqual(configuredBuffer, providedBuffer)
-  );
-}
-
 export async function POST(request: Request) {
   if (!hasValidDeviceKey(request)) {
     return Response.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  let body: unknown;
+  const distanceCm = await readDistanceCm(request);
 
-  try {
-    body = await request.json();
-  } catch {
-    return Response.json({ error: "Invalid JSON body" }, { status: 400 });
-  }
-
-  const distanceCm =
-    typeof body === "object" && body !== null && "distanceCm" in body
-      ? Number(body.distanceCm)
-      : Number.NaN;
-
-  if (!Number.isFinite(distanceCm) || distanceCm < 0 || distanceCm > 500) {
+  if (distanceCm === null) {
     return Response.json(
       { error: "distanceCm must be a number between 0 and 500" },
       { status: 422 },
@@ -88,7 +63,11 @@ export async function POST(request: Request) {
   const apiKey = process.env.WAHA_API_KEY;
   const target = process.env.WAHA_TARGET?.trim();
 
+  const logAlert = (note: string) =>
+    after(() => appendSheetLog({ type: "alert", distanceCm, note }));
+
   if (!baseUrl || !apiKey || !target) {
+    logAlert("not sent: WAHA is not configured");
     console.error("WAHA_BASE_URL, WAHA_API_KEY or WAHA_TARGET is not configured");
     return Response.json(
       { error: "Notification service is not configured" },
@@ -114,6 +93,7 @@ export async function POST(request: Request) {
 
     if (!wahaResponse.ok) {
       const result = await wahaResponse.text().catch(() => null);
+      logAlert(`not sent: WAHA returned ${wahaResponse.status}`);
       console.error("WAHA rejected the notification", {
         status: wahaResponse.status,
         result,
@@ -125,8 +105,10 @@ export async function POST(request: Request) {
       );
     }
 
+    logAlert("WhatsApp sent");
     return Response.json({ sent: true });
   } catch (error) {
+    logAlert("not sent: WAHA unreachable");
     console.error("Could not reach WAHA", error);
     return Response.json(
       { error: "Notification service is unavailable" },

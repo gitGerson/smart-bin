@@ -6,6 +6,7 @@ const char* wifiPassword = "passwordwifi";
 const char* deviceApiKey = "a764245b6295d1ce4cea1fdab1c0b88d4cb2d2ed693bbc51afb3ed8aa783d53c";
 
 const char* alertApiUrl = "https://smart-bin-rosy.vercel.app/api/alerts/distance";
+const char* readingApiUrl = "https://smart-bin-rosy.vercel.app/api/readings";
 
 const int trigPin = 5;
 const int echoPin = 18;
@@ -15,6 +16,7 @@ const float warningDistanceCm = 5.0;
 const float rearmDistanceCm = 7.0;
 const unsigned long notificationRetryMs = 30000;
 const unsigned long wifiJoinTimeoutMs = 10000;
+const unsigned long readingLogIntervalMs = 60000;
 const int maxOpenNetworks = 10;
 
 #define SOUND_SPEED 0.034
@@ -22,6 +24,7 @@ const int maxOpenNetworks = 10;
 
 bool notificationSent = false;
 unsigned long lastNotificationAttempt = 0;
+unsigned long lastReadingLog = 0;
 
 // Kedipan status hanya aktif saat pemasangan agar tidak dianggap peringatan penuh.
 bool statusFeedbackEnabled = true;
@@ -113,7 +116,7 @@ void connectToWifi() {
   connectToAnyOpenWifi();
 }
 
-bool sendDistanceAlert(float distanceCm) {
+bool postDistance(const char* url, float distanceCm) {
   connectToWifi();
 
   if (WiFi.status() != WL_CONNECTED) {
@@ -121,7 +124,7 @@ bool sendDistanceAlert(float distanceCm) {
   }
 
   HTTPClient http;
-  http.begin(alertApiUrl);
+  http.begin(url);
   http.addHeader("Content-Type", "application/json");
   http.addHeader("x-device-key", deviceApiKey);
 
@@ -130,13 +133,27 @@ bool sendDistanceAlert(float distanceCm) {
   String response = http.getString();
   http.end();
 
-  Serial.printf("Alert API status: %d\n", statusCode);
+  Serial.printf("POST %s status: %d\n", url, statusCode);
   if (statusCode < 200 || statusCode >= 300) {
     Serial.println(response);
     return false;
   }
 
   return true;
+}
+
+bool sendDistanceAlert(float distanceCm) {
+  return postDistance(alertApiUrl, distanceCm);
+}
+
+// Catatan jarak berkala ke spreadsheet; gagal kirim ditunggu sampai jadwal berikutnya.
+void logReadingIfDue(float distanceCm) {
+  if (lastReadingLog != 0 && millis() - lastReadingLog < readingLogIntervalMs) {
+    return;
+  }
+
+  lastReadingLog = millis();
+  postDistance(readingApiUrl, distanceCm);
 }
 
 // Nilai 0 berarti sensor bermasalah atau objek terlalu dekat.
@@ -217,6 +234,7 @@ void loop() {
   float distanceInch = distanceCm * CM_TO_INCH;
 
   Serial.printf("Distance: %.2f cm / %.2f inch\n", distanceCm, distanceInch);
+  logReadingIfDue(distanceCm);
 
   if (distanceCm < warningDistanceCm) {
     digitalWrite(warningPin, HIGH);
