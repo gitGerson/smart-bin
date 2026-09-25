@@ -25,6 +25,24 @@ The ESP32 sends one message per close-object event. It rearms after the measured
 distance reaches 7 cm and retries failed notifications at most once every 30
 seconds.
 
+## Google Sheets log
+
+Every 60 seconds the ESP32 posts the current distance to `POST /api/readings`,
+and each alert attempt is logged with its WhatsApp result. Rows land in a `Log`
+sheet with the columns `Time (WIB)`, `Type`, `Distance (cm)`, `Fill (%)`, and
+`Note`.
+
+1. Create a Google Sheet, open **Extensions → Apps Script**, and replace the
+   code with `google-apps-script/Code.gs`.
+2. In **Project Settings → Script properties**, add `SECRET` with a long random
+   value.
+3. **Deploy → New deployment → Web app**, execute as *Me*, access *Anyone*.
+   Copy the `/exec` URL.
+4. Set `SHEETS_WEBHOOK_URL`, `SHEETS_WEBHOOK_SECRET` (same as `SECRET`), and
+   optionally `BIN_DEPTH_CM` for the fill percentage, then redeploy.
+
+A logging failure never blocks the WhatsApp alert.
+
 ## Getting Started
 
 First, run the development server:
