@@ -17,6 +17,8 @@ const float rearmDistanceCm = 7.0;
 const unsigned long notificationRetryMs = 30000;
 const unsigned long wifiJoinTimeoutMs = 10000;
 const unsigned long readingLogIntervalMs = 60000;
+const unsigned long fullWarningIntervalMs = 5UL * 60UL * 1000UL;
+const int warningDotMs = 200;
 const int maxOpenNetworks = 10;
 
 #define SOUND_SPEED 0.034
@@ -25,6 +27,29 @@ const int maxOpenNetworks = 10;
 bool notificationSent = false;
 unsigned long lastNotificationAttempt = 0;
 unsigned long lastReadingLog = 0;
+bool fullWarningPlayed = false;
+unsigned long lastFullWarning = 0;
+
+void playFullWarningIfDue() {
+  unsigned long now = millis();
+  if (fullWarningPlayed && now - lastFullWarning < fullWarningIntervalMs) {
+    return;
+  }
+
+  fullWarningPlayed = true;
+  lastFullWarning = now;
+
+  // Pola ..-.: dua pendek, satu panjang, satu pendek.
+  const int pulseUnits[] = {1, 1, 3, 1};
+  for (int i = 0; i < 4; i++) {
+    digitalWrite(warningPin, HIGH);
+    delay(pulseUnits[i] * warningDotMs);
+    digitalWrite(warningPin, LOW);
+    if (i < 3) {
+      delay(warningDotMs);
+    }
+  }
+}
 
 // Kedipan status hanya aktif saat pemasangan agar tidak dianggap peringatan penuh.
 bool statusFeedbackEnabled = true;
@@ -237,7 +262,7 @@ void loop() {
   logReadingIfDue(distanceCm);
 
   if (distanceCm < warningDistanceCm) {
-    digitalWrite(warningPin, HIGH);
+    playFullWarningIfDue();
     Serial.println("WARNING: Object is under 5 cm!");
 
     bool retryIsDue =
@@ -251,6 +276,7 @@ void loop() {
     }
   } else {
     digitalWrite(warningPin, LOW);
+    fullWarningPlayed = false;
 
     // Aktifkan ulang setelah objek menjauh agar peringatan tidak berulang.
     if (distanceCm >= rearmDistanceCm) {
